@@ -63,6 +63,25 @@ int main(int argc, char *argv[])
     {
         int redirect = splittoTask(task, &countoftasks, &pipes);
         int i = 0;
+        if (countoftasks == 1)
+        {
+            char *one[2];
+            one[0] = strtok(pipes[i], " ");
+            one[1] = strtok(NULL, " ");
+            one[1] = (one[1] == NULL) ? " " : one[1];
+            pid_t pid;
+
+            pid = fork();
+            if (pid == 1)
+            {
+                perror("fork bad");
+                _exit(EXIT_FAILURE);
+            }
+            else if (pid > 0)
+            {
+                execlp(one[0], one[0], one[1], NULL);
+            }
+        }
         for (i = 0; i < countoftasks - 1; i++)
         {
             char *one[2];
@@ -71,51 +90,40 @@ int main(int argc, char *argv[])
             one[1] = strtok(NULL, " ");
             two[0] = strtok(pipes[i + 1], " ");
             two[1] = strtok(NULL, " ");
-
-            pid_t pid;
-
-            pid = fork();
-
-            if (pid == 0)
+            pid_t parent;
+            parent = fork();
+            if (parent > 0)
             {
-                int fds1[2];
-                int fds2[2];
-                pipe(fds1);
-                pipe(fds2);
-                
-                pid_t pid2 = fork();
+                pid_t pid;
+                int fps[2];
+                pipe(fps);
+                pid = fork();
 
-                if(pid2 == 0)
+                if (pid == -1)
                 {
-                    dup2(fds1[1],1);
-                    dup2(fds2[0],0);
-                    close(fds1[0]);
-                    close(fds2[1]);
-                    //execlp(one[0], one[0], one[1], NULL);
+                    perror("fork bad");
+                    _exit(EXIT_FAILURE);
                 }
-
-                // dup2(fds2[0], STDIN_FILENO);
-                // dup2(fds2[1], STDOUT_FILENO);
-                execlp(two[0], two[0], two[1], NULL);
+                else if (pid > 0)
+                {
+                    close(fps[0]);
+                    dup2(fps[1], 1);
+                    if (one[1] != NULL)
+                        execlp(one[0], one[0], one[1], NULL);
+                    else
+                        execlp(one[0], one[0], NULL);
+                }
+                else
+                {
+                    close(fps[1]);
+                    dup2(fps[0], 0);
+                    if (two[1] != NULL)
+                        execlp(two[0], two[0], two[1], NULL);
+                    else
+                        execlp(two[0], two[0], NULL);
+                    exit(EXIT_FAILURE);
+                }
             }
-            // else
-            // {
-
-            //     close(fds1[0]);
-
-            //     FILE *stream = fdopen(fds1[1], "w");
-
-            //     pid_t pid1 = fork();
-            //     if (pid1 == 0)
-            //     {
-            //         dup2(fds1[1], STDOUT_FILENO);
-            //         execlp(one[0], one[0], one[1], NULL);
-            //     }
-
-            //     close(fds1[1]);
-
-            //     waitpid(pid, NULL, 0);
-            // }
         }
     }
 }
