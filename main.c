@@ -51,6 +51,41 @@ int splittoTask(char *tasks, int *countoftasks, char *pipes[100])
 
     return 0;
 }
+static void pipeline(char ***cmd)
+{
+    int fd[2];
+    pid_t pid;
+    int fdd = 0; /* Backup */
+
+    while (*cmd != NULL)
+    {
+        pipe(fd);
+        if ((pid = fork()) == -1)
+        {
+            perror("fork");
+            exit(1);
+        }
+        else if (pid == 0)
+        {
+            dup2(fdd, 0);
+            if (*(cmd + 1) != NULL)
+            {
+                dup2(fd[1], 1);
+            }
+            printf("%s %s \n", (*cmd)[0], *cmd);
+            close(fd[0]);
+            execvp((*cmd)[0], *cmd);
+            exit(1);
+        }
+        else
+        {
+            wait(NULL); /* Collect childs */
+            close(fd[1]);
+            fdd = fd[0];
+            cmd++;
+        }
+    }
+}
 
 int main(int argc, char *argv[])
 {
@@ -59,71 +94,46 @@ int main(int argc, char *argv[])
     char *task;
     int countoftasks;
     char *pipes[100];
+    char *ls[] = {"ls", "-al", NULL};
+    //https://gist.github.com/iomonad/a66f6e9cfb935dc12c0244c1e48db5c8
+    // char *rev[] = {"rev", NULL};
+    // char *nl[] = {"nl", NULL};
+    // char *cat[] = {"cat", "-e", NULL};
+    char **cmd[] = {ls, NULL};
+    pipeline(cmd);
     while ((task = fgets(bufor, sizeof(bufor), stdin)) != 0)
     {
         int redirect = splittoTask(task, &countoftasks, &pipes);
         int i = 0;
-        if (countoftasks == 1)
+        char **cmda[countoftasks+1];
+        for (i = 0; i < countoftasks; i++)
         {
-            char *one[2];
-            one[0] = strtok(pipes[i], " ");
-            one[1] = strtok(NULL, " ");
-            one[1] = (one[1] == NULL) ? " " : one[1];
-            pid_t pid;
-
-            pid = fork();
-            if (pid == 1)
+            if (i == countoftasks - 1)
             {
-                perror("fork bad");
-                _exit(EXIT_FAILURE);
+                int len = sizeof(pipes[i]) / sizeof(char);
+                printf("%d", len);
+                strncpy(pipes[i], pipes[i], len - 5);
+                pipes[i][len - 3] = '\0';
             }
-            else if (pid > 0)
+            char *command = strtok(pipes[i], " ");
+            char *args = strtok(NULL, " ");
+            if (args == NULL)
             {
-                execlp(one[0], one[0], one[1], NULL);
+                //printf("%d \n", i);
+                char *comm[] = {command, args};
+                //printf("%s %s\n", comm[0], comm[1]);
+                cmda[i] = comm;
+            }
+            else
+            {
+                //printf("%s %s\n", command, args);
+                char *comm[] = {command, args, NULL};
+                cmda[i] = comm;
+                //cmd[i] = &comm;
             }
         }
-        for (i = 0; i < countoftasks - 1; i++)
-        {
-            char *one[2];
-            char *two[2];
-            one[0] = strtok(pipes[i], " ");
-            one[1] = strtok(NULL, " ");
-            two[0] = strtok(pipes[i + 1], " ");
-            two[1] = strtok(NULL, " ");
-            pid_t parent;
-            parent = fork();
-            if (parent > 0)
-            {
-                pid_t pid;
-                int fps[2];
-                pipe(fps);
-                pid = fork();
-
-                if (pid == -1)
-                {
-                    perror("fork bad");
-                    _exit(EXIT_FAILURE);
-                }
-                else if (pid > 0)
-                {
-                    close(fps[0]);
-                    dup2(fps[1], 1);
-                    if (one[1] != NULL)
-                        execlp(one[0], one[0], one[1], NULL);
-                    else
-                        execlp(one[0], one[0], NULL);
-                }
-                else
-                {
-                    close(fps[1]);
-                    dup2(fps[0], 0);
-                    if (two[1] != NULL)
-                        execlp(two[0], two[0], two[1], NULL);
-                    else
-                        execlp(two[0], two[0], NULL);
-                    exit(EXIT_FAILURE);
-                }
-            }
-        }
+        cmda[i] = NULL;
+        pipeline(cmda);
+        
     }
 }
