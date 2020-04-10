@@ -129,11 +129,13 @@ int main(int argc, char *argv[])
             if (args == NULL)
             {
                 char *comm[] = {command, NULL};
+                cmda[i] = (char **)malloc(sizeof(char *) * 2);
                 memcpy(cmda[i], comm, sizeof(comm));
             }
             else
             {
                 char *comm[] = {command, args, NULL};
+                cmda[i] = (char **)malloc(sizeof(char *) * 3);
                 memcpy(cmda[i], comm, sizeof(comm));
             }
         }
