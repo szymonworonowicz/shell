@@ -51,12 +51,12 @@ int splittoTask(char *tasks, int *countoftasks, char *pipes[100])
 
     return 0;
 }
-static void pipeline(char ***cmd)
+void pipeline(char ***cmd)
 {
     int fd[2];
     pid_t pid;
     int fdd = 0; /* Backup */
-
+    sigmask(0);
     while (*cmd != NULL)
     {
         pipe(fd);
@@ -67,19 +67,18 @@ static void pipeline(char ***cmd)
         }
         else if (pid == 0)
         {
-            umask(0);
             dup2(fdd, 0);
             if (*(cmd + 1) != NULL)
             {
                 dup2(fd[1], 1);
             }
             close(fd[0]);
-            //execvp((*cmd)[0],(*cmd)[1]);
             execvp((*cmd)[0], *cmd);
             exit(1);
         }
         else
         {
+            int status;
             wait(NULL); /* Collect childs */
             close(fd[1]);
             fdd = fd[0];
@@ -87,7 +86,6 @@ static void pipeline(char ***cmd)
         }
     }
 }
-
 int main(int argc, char *argv[])
 {
     signal(SIGQUIT, handler);
@@ -101,8 +99,7 @@ int main(int argc, char *argv[])
     char *nl[] = {"nl", NULL};
     char *cat[] = {"cat", "-e", NULL};
     char **cmd[] = {ls, rev, nl, cat, NULL};
-
-    pipeline(cmd);
+    //pipeline(cmd);
 
     while ((task = fgets(bufor, sizeof(bufor), stdin)) != 0)
     {
@@ -131,13 +128,13 @@ int main(int argc, char *argv[])
             char *args = strtok(NULL, " ");
             if (args == NULL)
             {
-                char *comm[] = {command, args};
-                *cmda[i] = *comm;
+                char *comm[] = {command, NULL};
+                memcpy(cmda[i], comm, sizeof(comm));
             }
             else
             {
                 char *comm[] = {command, args, NULL};
-                *cmda[i] = *comm;
+                memcpy(cmda[i], comm, sizeof(comm));
             }
         }
         cmda[i] = NULL;
