@@ -108,14 +108,6 @@ int main(int argc, char *argv[])
     char *task;
     int countoftasks;
     char *pipes[100];
-    //https://gist.github.com/iomonad/a66f6e9cfb935dc12c0244c1e48db5c8
-    // char *ls[] = {"ls", "-al", NULL};
-    // char *rev[] = {"rev", NULL};
-    // char *nl[] = {"nl", NULL};
-    // char *cat[] = {"cat", "-e", NULL};
-    // char **cmd[] = {ls, rev, nl, cat, NULL};
-    //pipeline(cmd);
-
     while ((task = fgets(bufor, sizeof(bufor), stdin)) != 0)
     {
         int redirect = splittoTask(task, &countoftasks, &pipes);
@@ -123,9 +115,6 @@ int main(int argc, char *argv[])
         char **cmda[countoftasks + 1];
         for (i = 0; i < countoftasks; i++)
         {
-            // char *args[16];
-            // parse(pipes[i], args);
-            // memcpy(cmda[i], args, sizeof(args));
             if (i == countoftasks - 1)
             {
                 int j, enter = 0;
@@ -144,7 +133,18 @@ int main(int argc, char *argv[])
             }
             char *command = strtok(pipes[i], " ");
             char *args = strtok(NULL, " ");
-            if (args == NULL)
+            if(strcmp(command,"cd")==0 && args!=NULL)
+            {
+                if(strcmp(args,"~")==0)
+                {
+                    args = "/home/szymon";
+                }
+                if(chdir(args)==-1)
+                {
+                    perror("cd blad");
+                }
+            }
+            else if (args == NULL)
             {
                 char *comm[] = {command, NULL};
                 cmda[i] = (char **)malloc(sizeof(char *) * 2);
