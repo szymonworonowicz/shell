@@ -88,19 +88,6 @@ void pipeline(char ***cmd)
     }
 }
 
-void parse(char *task, char **argv)
-{
-    while (*task != '\0')
-    {
-        while (*task == ' ' || *task == '\t' || *task == '\n')
-            *task++ = '\0';
-        if (strcmp(task,"")!=0)
-            *argv++ = task;
-        while (*task != '\0' && *task != ' ' && *task != '\t' && *task != '\n')
-            task++;
-    }
-    *argv = '\0';
-}
 int main(int argc, char *argv[])
 {
     signal(SIGQUIT, handler);
@@ -137,7 +124,10 @@ int main(int argc, char *argv[])
             {
                 if(strcmp(args,"~")==0)
                 {
-                    args = "/home/szymon";
+                    char* user = getenv("USER");
+                    char arg[15] = "/home/";
+                    strcat(arg,user);
+                    strcpy(args,arg);
                 }
                 if(chdir(args)==-1)
                 {
