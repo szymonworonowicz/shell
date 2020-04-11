@@ -79,12 +79,27 @@ void pipeline(char ***cmd)
         else
         {
             int status;
-            wait(NULL); /* Collect childs */
+            while (wait(&status) != pid);
+            //wait(NULL); /* Collect childs */
             close(fd[1]);
             fdd = fd[0];
             cmd++;
         }
     }
+}
+
+void parse(char *task, char **argv)
+{
+    while (*task != '\0')
+    {
+        while (*task == ' ' || *task == '\t' || *task == '\n')
+            *task++ = '\0';
+        if (strcmp(task,"")!=0)
+            *argv++ = task;
+        while (*task != '\0' && *task != ' ' && *task != '\t' && *task != '\n')
+            task++;
+    }
+    *argv = '\0';
 }
 int main(int argc, char *argv[])
 {
@@ -94,11 +109,11 @@ int main(int argc, char *argv[])
     int countoftasks;
     char *pipes[100];
     //https://gist.github.com/iomonad/a66f6e9cfb935dc12c0244c1e48db5c8
-    char *ls[] = {"ls", "-al", NULL};
-    char *rev[] = {"rev", NULL};
-    char *nl[] = {"nl", NULL};
-    char *cat[] = {"cat", "-e", NULL};
-    char **cmd[] = {ls, rev, nl, cat, NULL};
+    // char *ls[] = {"ls", "-al", NULL};
+    // char *rev[] = {"rev", NULL};
+    // char *nl[] = {"nl", NULL};
+    // char *cat[] = {"cat", "-e", NULL};
+    // char **cmd[] = {ls, rev, nl, cat, NULL};
     //pipeline(cmd);
 
     while ((task = fgets(bufor, sizeof(bufor), stdin)) != 0)
@@ -108,6 +123,9 @@ int main(int argc, char *argv[])
         char **cmda[countoftasks + 1];
         for (i = 0; i < countoftasks; i++)
         {
+            // char *args[16];
+            // parse(pipes[i], args);
+            // memcpy(cmda[i], args, sizeof(args));
             if (i == countoftasks - 1)
             {
                 int j, enter = 0;
