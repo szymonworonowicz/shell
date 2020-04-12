@@ -79,15 +79,39 @@ void pipeline(char ***cmd)
         else
         {
             int status;
-            while (wait(&status) != pid);
-            //wait(NULL); /* Collect childs */
+            //while (wait(&status) != pid)
+            wait(NULL); /* Collect childs */
             close(fd[1]);
             fdd = fd[0];
             cmd++;
         }
     }
 }
+int parse(char *line, char **argv)
+{
+    int count = 0;
+    while (*line != '\0')
+    { /* if not the end of line ....... */
+        while (*line == ' ' || *line == '\t' || *line == '\n')
+            *line++ = '\0'; /* replace white spaces with 0    */
+        if (strcmp(line, "") == 0)
+            break;
+        *argv++ = line;
+        count++; /* save the argument position     */
+        while (*line != '\0' && *line != ' ' &&
+               *line != '\t' && *line != '\n')
+            line++; /* skip the argument until ...    */
+    }
+    *argv = '\0'; /* mark the end of argument list  */
 
+    return count;
+}
+void printpath()
+{
+    char path[128];
+    getcwd(path, sizeof(path));
+    printf("%s: ", path);
+}
 int main(int argc, char *argv[])
 {
     signal(SIGQUIT, handler);
@@ -95,59 +119,91 @@ int main(int argc, char *argv[])
     char *task;
     int countoftasks;
     char *pipes[100];
+    printpath();
     while ((task = fgets(bufor, sizeof(bufor), stdin)) != 0)
     {
         int redirect = splittoTask(task, &countoftasks, &pipes);
-        int i = 0;
+        int i = 0, cdflag = 0;
         char **cmda[countoftasks + 1];
         for (i = 0; i < countoftasks; i++)
         {
-            if (i == countoftasks - 1)
+            char *args[64]; // = (char **)malloc(sizeof(char*)*64);
+            int cmdcounts = parse(pipes[i], args);
+            if (strcmp(args[0], "cd") == 0 && args[1] != NULL)
             {
-                int j, enter = 0;
-                for (j = 0; pipes[i][j] != '\0'; j++)
+                if (strcmp(args[1], "~") == 0)
                 {
-                    if (pipes[i][j] == '\n')
-                    {
-                        enter = 1;
-                        break;
-                    }
-                }
-                if (enter == 1)
-                {
-                    pipes[i][j] = '\0';
-                }
-            }
-            char *command = strtok(pipes[i], " ");
-            char *args = strtok(NULL, " ");
-            if(strcmp(command,"cd")==0 && args!=NULL)
-            {
-                if(strcmp(args,"~")==0)
-                {
-                    char* user = getenv("USER");
+                    char *user = getenv("USER");
                     char arg[15] = "/home/";
-                    strcat(arg,user);
-                    strcpy(args,arg);
+                    strcat(arg, user);
+                    strcpy(args[1], arg);
                 }
-                if(chdir(args)==-1)
+                if (chdir(args[1]) == -1)
                 {
                     perror("cd blad");
                 }
-            }
-            else if (args == NULL)
-            {
-                char *comm[] = {command, NULL};
-                cmda[i] = (char **)malloc(sizeof(char *) * 2);
-                memcpy(cmda[i], comm, sizeof(comm));
+                cdflag = 1;
             }
             else
             {
-                char *comm[] = {command, args, NULL};
-                cmda[i] = (char **)malloc(sizeof(char *) * 3);
-                memcpy(cmda[i], comm, sizeof(comm));
+                if (cdflag == 1)
+                {
+                    fprintf(stderr,"%s \n", "niepoprawne polecenie");
+                }
+                cmda[i] = (char **)malloc(sizeof(char *) * 64);
+                memcpy(cmda[i], args, sizeof(args));
             }
+
+            // if (i == countoftasks - 1)
+            // {
+            //     int j, enter = 0;
+            //     for (j = 0; pipes[i][j] != '\0'; j++)
+            //     {
+            //         if (pipes[i][j] == '\n')
+            //         {
+            //             enter = 1;
+            //             break;
+            //         }
+            //     }
+            //     if (enter == 1)
+            //     {
+            //         pipes[i][j] = '\0';
+            //     }
+            // }
+            // char *command = strtok(pipes[i], " ");
+            // char *args = strtok(NULL, " ");
+            // if(strcmp(command,"cd")==0 && args!=NULL)
+            // {
+            //     if(strcmp(args,"~")==0)
+            //     {
+            //         char* user = getenv("USER");
+            //         char arg[15] = "/home/";
+            //         strcat(arg,user);
+            //         strcpy(args,arg);
+            //     }
+            //     if(chdir(args)==-1)
+            //     {
+            //         perror("cd blad");
+            //     }
+            // }
+            // else if (args == NULL)
+            // {
+            //     char *comm[] = {command, NULL};
+            //     cmda[i] = (char **)malloc(sizeof(char *) * 2);
+            //     memcpy(cmda[i], comm, sizeof(comm));
+            // }
+            // else
+            // {
+            //     char *comm[] = {command, args, NULL};
+            //     cmda[i] = (char **)malloc(sizeof(char *) * 3);
+            //     memcpy(cmda[i], comm, sizeof(comm));
+            // }
         }
-        cmda[i] = NULL;
-        pipeline(cmda);
+        if (cdflag == 0)
+        {
+            cmda[i] = NULL;
+            pipeline(cmda);
+        }
+        printpath();
     }
 }
