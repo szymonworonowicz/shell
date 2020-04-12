@@ -7,29 +7,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-void handler(int sig)
-{
-    FILE *fp;
-    char c;
-    fp = fopen("history", "r");
-
-    if (fp != NULL)
-    {
-        while ((c = getc(fp)) != EOF)
-            printf("%c", c);
-    }
-    else
-    {
-        fprintf(stderr, "%s \n", "Błąd odczytu histori");
-        exit(EXIT_FAILURE);
-    }
-
-    if (fclose(fp) != EOF)
-    {
-        fprintf(stderr, "%s\n", "Blad zamkniecia pliku historia");
-        exit(EXIT_FAILURE);
-    }
-}
 
 int splittoTask(char *tasks, int *countoftasks, char *pipes[100])
 {
@@ -87,6 +64,38 @@ void pipeline(char ***cmd)
         }
     }
 }
+void printpath()
+{
+    char path[128];
+    getcwd(path, sizeof(path));
+    printf("%s: ", path);
+}
+void handler(int sig)
+{
+    // FILE *fp;
+    // char c;
+    // fp = fopen("history.txt", "r");
+
+    // if (fp != NULL)
+    // {
+    //     while ((c = getc(fp)) != EOF)
+    //         printf("%c", c);
+    // }
+    // else
+    // {
+    //     fprintf(stderr, "%s \n", "Błąd odczytu histori");
+    //     exit(EXIT_FAILURE);
+    // }
+
+    // if (fclose(fp) != EOF)
+    // {
+    //     fprintf(stderr, "%s\n", "Blad zamkniecia pliku historia");
+    //     exit(EXIT_FAILURE);
+    // }
+    char* task[] ={"tail","-20","/home/szymon/shell/history.txt",NULL};
+    char** cmd[] = {task,NULL};
+    pipeline(cmd);
+}
 int parse(char *line, char **argv)
 {
     int count = 0;
@@ -106,11 +115,16 @@ int parse(char *line, char **argv)
 
     return count;
 }
-void printpath()
+
+
+void writehistory(char* line)
 {
-    char path[128];
-    getcwd(path, sizeof(path));
-    printf("%s: ", path);
+    FILE* fp;
+    fp = fopen("/home/szymon/shell/history.txt","a");;
+
+    fprintf(fp,"%s",line);
+
+    fclose(fp);
 }
 int main(int argc, char *argv[])
 {
@@ -127,6 +141,7 @@ int main(int argc, char *argv[])
         char **cmda[countoftasks + 1];
         for (i = 0; i < countoftasks; i++)
         {
+            writehistory(task);
             char *args[64]; // = (char **)malloc(sizeof(char*)*64);
             int cmdcounts = parse(pipes[i], args);
             if (strcmp(args[0], "cd") == 0 && args[1] != NULL)
@@ -153,51 +168,6 @@ int main(int argc, char *argv[])
                 cmda[i] = (char **)malloc(sizeof(char *) * 64);
                 memcpy(cmda[i], args, sizeof(args));
             }
-
-            // if (i == countoftasks - 1)
-            // {
-            //     int j, enter = 0;
-            //     for (j = 0; pipes[i][j] != '\0'; j++)
-            //     {
-            //         if (pipes[i][j] == '\n')
-            //         {
-            //             enter = 1;
-            //             break;
-            //         }
-            //     }
-            //     if (enter == 1)
-            //     {
-            //         pipes[i][j] = '\0';
-            //     }
-            // }
-            // char *command = strtok(pipes[i], " ");
-            // char *args = strtok(NULL, " ");
-            // if(strcmp(command,"cd")==0 && args!=NULL)
-            // {
-            //     if(strcmp(args,"~")==0)
-            //     {
-            //         char* user = getenv("USER");
-            //         char arg[15] = "/home/";
-            //         strcat(arg,user);
-            //         strcpy(args,arg);
-            //     }
-            //     if(chdir(args)==-1)
-            //     {
-            //         perror("cd blad");
-            //     }
-            // }
-            // else if (args == NULL)
-            // {
-            //     char *comm[] = {command, NULL};
-            //     cmda[i] = (char **)malloc(sizeof(char *) * 2);
-            //     memcpy(cmda[i], comm, sizeof(comm));
-            // }
-            // else
-            // {
-            //     char *comm[] = {command, args, NULL};
-            //     cmda[i] = (char **)malloc(sizeof(char *) * 3);
-            //     memcpy(cmda[i], comm, sizeof(comm));
-            // }
         }
         if (cdflag == 0)
         {

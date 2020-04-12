@@ -1,0 +1,12 @@
+ls
+cd ~
+ls
+cd /
+cd sygnaly
+cd ~
+cd sygnaly
+ls
+less main.c
+tail -20 history.txt
+ls -l
+ls -la
