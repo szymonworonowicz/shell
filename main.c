@@ -7,7 +7,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-
 int splittoTask(char *tasks, int *countoftasks, char *pipes[100])
 {
     char *pipesep = "|";
@@ -72,43 +71,26 @@ void printpath()
 }
 void handler(int sig)
 {
-    // FILE *fp;
-    // char c;
-    // fp = fopen("history.txt", "r");
-
-    // if (fp != NULL)
-    // {
-    //     while ((c = getc(fp)) != EOF)
-    //         printf("%c", c);
-    // }
-    // else
-    // {
-    //     fprintf(stderr, "%s \n", "Błąd odczytu histori");
-    //     exit(EXIT_FAILURE);
-    // }
-
-    // if (fclose(fp) != EOF)
-    // {
-    //     fprintf(stderr, "%s\n", "Blad zamkniecia pliku historia");
-    //     exit(EXIT_FAILURE);
-    // }
-    char* task[] ={"tail","-20","/home/szymon/shell/history.txt",NULL};
-    char** cmd[] = {task,NULL};
+    char *task[] = {"tail", "-20", "/home/szymon/shell/history.txt", NULL};
+    char **cmd[] = {task, NULL};
     pipeline(cmd);
 }
 int parse(char *line, char **argv)
 {
     int count = 0;
     while (*line != '\0')
-    { /* if not the end of line ....... */
-        while (*line == ' ' || *line == '\t' || *line == '\n')
+    {   
+        // if(strcmp(line,"\"\n")==0)
+        //     break;
+        /* if not the end of line ....... */
+        while (*line == ' ' || *line == '\t' || *line =='\"' || *line == '\n') //92 - \\/
             *line++ = '\0'; /* replace white spaces with 0    */
         if (strcmp(line, "") == 0)
             break;
         *argv++ = line;
         count++; /* save the argument position     */
         while (*line != '\0' && *line != ' ' &&
-               *line != '\t' && *line != '\n')
+               *line != '\t' && *line != '\n' && *line !='\"')
             line++; /* skip the argument until ...    */
     }
     *argv = '\0'; /* mark the end of argument list  */
@@ -116,13 +98,12 @@ int parse(char *line, char **argv)
     return count;
 }
 
-
-void writehistory(char* line)
+void writehistory(char *line)
 {
-    FILE* fp;
-    fp = fopen("/home/szymon/shell/history.txt","a");;
+    FILE *fp;
+    fp = fopen("/home/szymon/shell/history.txt", "a");
 
-    fprintf(fp,"%s",line);
+    fprintf(fp, "%s", line);
 
     fclose(fp);
 }
@@ -138,10 +119,11 @@ int main(int argc, char *argv[])
     {
         int redirect = splittoTask(task, &countoftasks, &pipes);
         int i = 0, cdflag = 0;
+        writehistory(task);
         char **cmda[countoftasks + 1];
         for (i = 0; i < countoftasks; i++)
         {
-            writehistory(task);
+
             char *args[64]; // = (char **)malloc(sizeof(char*)*64);
             int cmdcounts = parse(pipes[i], args);
             if (strcmp(args[0], "cd") == 0 && args[1] != NULL)
@@ -163,7 +145,7 @@ int main(int argc, char *argv[])
             {
                 if (cdflag == 1)
                 {
-                    fprintf(stderr,"%s \n", "niepoprawne polecenie");
+                    fprintf(stderr, "%s \n", "niepoprawne polecenie");
                 }
                 cmda[i] = (char **)malloc(sizeof(char *) * 64);
                 memcpy(cmda[i], args, sizeof(args));

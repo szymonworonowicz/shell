@@ -10,3 +10,8 @@ less main.c
 tail -20 history.txt
 ls -l
 ls -la
+ls -lalsls -la
+ls -lalsls -lals lslslsls -lalsls lslslsls -la
+lsls lslslslslscd ~\shell
+cd ~
+lsls
