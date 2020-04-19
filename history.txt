@@ -1,3 +1,135 @@
 
 ls -la
 ls -laclear
+ls -la
+cd ~
+ls
+ls
+ls -la
+ls -la |grep "[A-Z]"
+ls >> a.txt
+ls >> a.txt
+ls >> a.txt
+ls >> a.txt
+ls|rev|nl
+ls|rev|nl
+ls >> a.txt
+ls >> a.txt
+ls >> a.txt
+ls >> a.txt
+ls >> a.txt
+ls >> b.txt
+ls >> b.txt
+ls >> a.txt
+ls >> a.txt
+ls >> a.txt
+ls
+ls >> a.txt
+ls >> a.txt
+ls
+rm a.txt foo.txt
+ls
+make clean
+ls
+exit
+ls >> a.txt
+ls >> a.txt
+a.txt
+history.txt
+main
+main.c
+main.o
+Makefile
+README.md
+a
+ls >> a.txt
+less a.txt
+ls >> a.txt
+ls >> a.txt
+ls >> a.txt
+ls 
+ls >> a.txt
+a.txt
+history.txt
+main
+main.c
+main.o
+Makefile
+README.md
+ls >> a.txt
+a.txt
+history.txt
+main
+main.c
+main.o
+Makefile
+README.md
+ls >> a.txt
+history.txt
+main
+main.c
+main.o
+Makefile
+README.md
+clear
+ls >> a.txt
+a.txt
+history.txt
+main
+main.c
+main.o
+Makefile
+README.md
+ls >> b.txt
+ls >> a.txt
+ls >> b.txt
+ls
+ls >>a.txt
+ls >> a.txt
+ls >> a.txt
+make
+./main
+ls >> a.txt
+ls
+ls >> a.txt
+ls >> b.txt
+ls
+ls
+ls
+ls >> a.txt
+ls
+cd ~
+ls
+cd shell
+ls
+ls|rev|nl|rev
+ls|rev|nl|rev
+cd ~
+ls|rev|nl|rev
+cd shell
+ls
+ls >> a.txt
+ls >> a.txt
+ls
+ls|nl|rev|nl
+ls >> a.txt
+ls|rev|nl|rev >> b.txt
+ls >> a.txt
+ls >> a.txt
+whoamin >> b.txt
+whoami >> b.txt
+ls|rev
+ls|rev >> c.txt
+ls
+ls >> a.txt
+ls|rev >> a.txt
+ls
+ls >> b.txt
+ls |rev| nl
+ls |rev|nl >> c.txt
+less c.txt
+ls
+rm a.txt b.txt c.txt
+ls|rev|nl|rev|nl
+ls|rev|nl|rev|nl >> c.txt
+less c.txt

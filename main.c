@@ -4,8 +4,11 @@
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/mman.h>
 
 int splittoTask(char *tasks, int *countoftasks, char *pipes[100])
 {
@@ -22,17 +25,22 @@ int splittoTask(char *tasks, int *countoftasks, char *pipes[100])
     {
         pipes[*countoftasks - 1] = redirect;
         pipes[*countoftasks] = strtok(NULL, redirectsep);
-        return 1;
+        if (pipes[*countoftasks] != NULL)
+        {
+            (*countoftasks)++;
+            return 1;
+        }
     }
 
     return 0;
 }
-void pipeline(char ***cmd)
+void pipeline(char ***cmd, int redirect, int countoftasks)
 {
     int fd[2];
     pid_t pid;
     int fdd = 0; /* Backup */
     sigmask(0);
+    int file;
     while (*cmd != NULL)
     {
         pipe(fd);
@@ -44,18 +52,33 @@ void pipeline(char ***cmd)
         else if (pid == 0)
         {
             dup2(fdd, 0);
+
             if (*(cmd + 1) != NULL)
             {
-                dup2(fd[1], 1);
+                dup2(fd[1], STDOUT_FILENO);
             }
-            close(fd[0]);
+            if (redirect == 1 && *(cmd + 2) == NULL)
+            {
+                if ((file = open(*(cmd+1)[0], O_CREAT | O_WRONLY | O_TRUNC, 0644)) < 0)
+                {
+                    perror("open error");
+                    //return -1;
+                }
+
+                dup2(file, 1);
+                close(file);
+            }
+            else
+            {
+                close(fd[0]);
+            }
+            
+
             execvp((*cmd)[0], *cmd);
             exit(1);
         }
         else
         {
-            int status;
-            //while (wait(&status) != pid)
             wait(NULL); /* Collect childs */
             close(fd[1]);
             fdd = fd[0];
@@ -73,24 +96,24 @@ void handler(int sig)
 {
     char *task[] = {"tail", "-20", "/home/szymon/shell/history.txt", NULL};
     char **cmd[] = {task, NULL};
-    pipeline(cmd);
+    pipeline(cmd, 0, 0);
 }
 int parse(char *line, char **argv)
 {
     int count = 0;
     while (*line != '\0')
-    {   
+    {
         // if(strcmp(line,"\"\n")==0)
         //     break;
         /* if not the end of line ....... */
-        while (*line == ' ' || *line == '\t' || *line =='\"' || *line == '\n') //92 - \\/
-            *line++ = '\0'; /* replace white spaces with 0    */
+        while (*line == ' ' || *line == '\t' || *line == '\"' || *line == '\n') //92 - \\/
+            *line++ = '\0';                                                     /* replace white spaces with 0    */
         if (strcmp(line, "") == 0)
             break;
         *argv++ = line;
         count++; /* save the argument position     */
         while (*line != '\0' && *line != ' ' &&
-               *line != '\t' && *line != '\n' && *line !='\"')
+               *line != '\t' && *line != '\n' && *line != '\"')
             line++; /* skip the argument until ...    */
     }
     *argv = '\0'; /* mark the end of argument list  */
@@ -117,9 +140,10 @@ int main(int argc, char *argv[])
     printpath();
     while ((task = fgets(bufor, sizeof(bufor), stdin)) != 0)
     {
+        writehistory(task);
         int redirect = splittoTask(task, &countoftasks, &pipes);
         int i = 0, cdflag = 0;
-        writehistory(task);
+
         char **cmda[countoftasks + 1];
         for (i = 0; i < countoftasks; i++)
         {
@@ -154,7 +178,7 @@ int main(int argc, char *argv[])
         if (cdflag == 0)
         {
             cmda[i] = NULL;
-            pipeline(cmda);
+            pipeline(cmda, redirect, countoftasks);
         }
         printpath();
     }
