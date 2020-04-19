@@ -10,10 +10,11 @@
 #include <sys/wait.h>
 #include <sys/mman.h>
 
-void splittoTask(char *tasks, int *countoftasks, char *pipes[100], int* redirectcount)
+void splittoTask(char *tasks, int *countoftasks, char *pipes[100], int *redirectcount,int *backgroundcount)
 {
     char *pipesep = "|";
     char *redirectsep = ">>";
+    char *backgroundseparator = "&";
     *countoftasks = 0;
     pipes[*countoftasks] = strtok(tasks, pipesep);
     while (pipes[*countoftasks] != NULL)
@@ -28,11 +29,27 @@ void splittoTask(char *tasks, int *countoftasks, char *pipes[100], int* redirect
         if (pipes[*countoftasks] != NULL)
         {
             (*countoftasks)++;
-            (*redirectcount)=1;
+            (*redirectcount) = 1;
         }
+        else
+        {
+            (*redirectcount) = 0;
+        } 
     }
-
-    (*redirectcount)=0;
+    char *background = strtok(pipes[*countoftasks - 1], backgroundseparator);
+    if (background != NULL)
+    {
+        pipes[*countoftasks - 1] = background;
+        char* sep = strtok(NULL, backgroundseparator);
+        if (sep != NULL)
+        {
+            (*backgroundcount) = 1;
+        }
+        else
+        {
+            (*backgroundcount) = 0;
+        } 
+    }
 }
 void pipeline(char ***cmd, int redirect, int countoftasks)
 {
@@ -59,7 +76,7 @@ void pipeline(char ***cmd, int redirect, int countoftasks)
             }
             if (redirect == 1 && *(cmd + 2) == NULL)
             {
-                if ((file = open(*(cmd+1)[0], O_CREAT | O_WRONLY | O_TRUNC, 0644)) < 0)
+                if ((file = open(*(cmd + 1)[0], O_CREAT | O_WRONLY | O_TRUNC, 0644)) < 0)
                 {
                     perror("open error");
                     //return -1;
@@ -72,7 +89,6 @@ void pipeline(char ***cmd, int redirect, int countoftasks)
             {
                 close(fd[0]);
             }
-            
 
             execvp((*cmd)[0], *cmd);
             exit(1);
@@ -92,9 +108,21 @@ void printpath()
     getcwd(path, sizeof(path));
     printf("%s: ", path);
 }
+
+char *generatehistorypath()
+{
+    char *user = getenv("USER");
+    char* arg = (char*) malloc(sizeof(char)*25);
+    strcat(arg,"/home/");
+    strcat(arg, user);
+    strcat(arg,"/history.txt");
+    return arg;
+}
 void handler(int sig)
 {
-    char *task[] = {"tail", "-20", "/home/szymon/shell/history.txt", NULL};
+    char*  path = generatehistorypath();
+    printf("\n");
+    char *task[] = {"tail", "-20", path, NULL};
     char **cmd[] = {task, NULL};
     pipeline(cmd, 0, 0);
 }
@@ -120,11 +148,30 @@ int parse(char *line, char **argv)
 
     return count;
 }
+void pipelineBackground(char ***cmd, int redirect, int countoftasks)
+{
+    pid_t pid;
 
+    if((pid=fork())==-1)
+    {
+        perror("fork error");
+        exit(EXIT_FAILURE);
+    }
+    else if(pid ==0)
+    {
+        pipeline(cmd,redirect,countoftasks);
+    }
+    else
+    {
+        printf("%s %d \n","uruchomiono w procesie", pid);
+    }
+    
+}
 void writehistory(char *line)
 {
     FILE *fp;
-    fp = fopen("/home/szymon/shell/history.txt", "a");
+    char* path = generatehistorypath();
+    fp = fopen(path, "a");
 
     fprintf(fp, "%s", line);
 
@@ -135,16 +182,15 @@ int main(int argc, char *argv[])
     signal(SIGQUIT, handler);
     char bufor[1024];
     char *task;
-    int countoftasks;
+    int countoftasks,redirect =0,background=0;
     char *pipes[100];
-    int redirect=0;
+
     printpath();
     while ((task = fgets(bufor, sizeof(bufor), stdin)) != 0)
     {
-        //writehistory(task);
-        splittoTask(task, &countoftasks, &pipes,&redirect);
+        writehistory(task);
+        splittoTask(task, &countoftasks, &pipes, &redirect, &background);
         int i = 0, cdflag = 0;
-
         char **cmda[countoftasks + 1];
         for (i = 0; i < countoftasks; i++)
         {
@@ -176,10 +222,15 @@ int main(int argc, char *argv[])
                 memcpy(cmda[i], args, sizeof(args));
             }
         }
-        if (cdflag == 0)
+        if (cdflag == 0 && background == 0)
         {
             cmda[i] = NULL;
             pipeline(cmda, redirect, countoftasks);
+        }
+        else if(cdflag ==0 && background ==1 )
+        {
+            cmda[i] = NULL;
+            pipelineBackground(cmda, redirect, countoftasks);
         }
         printpath();
     }
