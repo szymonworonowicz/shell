@@ -10,7 +10,7 @@
 #include <sys/wait.h>
 #include <sys/mman.h>
 
-int splittoTask(char *tasks, int *countoftasks, char *pipes[100])
+void splittoTask(char *tasks, int *countoftasks, char *pipes[100], int* redirectcount)
 {
     char *pipesep = "|";
     char *redirectsep = ">>";
@@ -28,11 +28,11 @@ int splittoTask(char *tasks, int *countoftasks, char *pipes[100])
         if (pipes[*countoftasks] != NULL)
         {
             (*countoftasks)++;
-            return 1;
+            (*redirectcount)=1;
         }
     }
 
-    return 0;
+    (*redirectcount)=0;
 }
 void pipeline(char ***cmd, int redirect, int countoftasks)
 {
@@ -137,11 +137,12 @@ int main(int argc, char *argv[])
     char *task;
     int countoftasks;
     char *pipes[100];
+    int redirect=0;
     printpath();
     while ((task = fgets(bufor, sizeof(bufor), stdin)) != 0)
     {
-        writehistory(task);
-        int redirect = splittoTask(task, &countoftasks, &pipes);
+        //writehistory(task);
+        splittoTask(task, &countoftasks, &pipes,&redirect);
         int i = 0, cdflag = 0;
 
         char **cmda[countoftasks + 1];
