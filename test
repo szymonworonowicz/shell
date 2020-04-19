@@ -1,0 +1,4 @@
+#!/home/szymon/shell/a.out
+
+ls -la >> a.txt
+ls >> b.txt

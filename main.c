@@ -10,7 +10,7 @@
 #include <sys/wait.h>
 #include <sys/mman.h>
 
-void splittoTask(char *tasks, int *countoftasks, char *pipes[100], int *redirectcount,int *backgroundcount)
+void splittoTask(char *tasks, int *countoftasks, char *pipes[100], int *redirectcount, int *backgroundcount)
 {
     char *pipesep = "|";
     char *redirectsep = ">>";
@@ -34,13 +34,13 @@ void splittoTask(char *tasks, int *countoftasks, char *pipes[100], int *redirect
         else
         {
             (*redirectcount) = 0;
-        } 
+        }
     }
     char *background = strtok(pipes[*countoftasks - 1], backgroundseparator);
     if (background != NULL)
     {
         pipes[*countoftasks - 1] = background;
-        char* sep = strtok(NULL, backgroundseparator);
+        char *sep = strtok(NULL, backgroundseparator);
         if (sep != NULL)
         {
             (*backgroundcount) = 1;
@@ -48,7 +48,7 @@ void splittoTask(char *tasks, int *countoftasks, char *pipes[100], int *redirect
         else
         {
             (*backgroundcount) = 0;
-        } 
+        }
     }
 }
 void pipeline(char ***cmd, int redirect, int countoftasks)
@@ -112,15 +112,15 @@ void printpath()
 char *generatehistorypath()
 {
     char *user = getenv("USER");
-    char* arg = (char*) malloc(sizeof(char)*25);
-    strcat(arg,"/home/");
+    char *arg = (char *)malloc(sizeof(char) * 25);
+    strcat(arg, "/home/");
     strcat(arg, user);
-    strcat(arg,"/history.txt");
+    strcat(arg, "/history.txt");
     return arg;
 }
 void handler(int sig)
 {
-    char*  path = generatehistorypath();
+    char *path = generatehistorypath();
     printf("\n");
     char *task[] = {"tail", "-20", path, NULL};
     char **cmd[] = {task, NULL};
@@ -152,25 +152,24 @@ void pipelineBackground(char ***cmd, int redirect, int countoftasks)
 {
     pid_t pid;
 
-    if((pid=fork())==-1)
+    if ((pid = fork()) == -1)
     {
         perror("fork error");
         exit(EXIT_FAILURE);
     }
-    else if(pid ==0)
+    else if (pid == 0)
     {
-        pipeline(cmd,redirect,countoftasks);
+        pipeline(cmd, redirect, countoftasks);
     }
     else
     {
-        printf("%s %d \n","uruchomiono w procesie", pid);
+        printf("%s %d \n", "uruchomiono w procesie", pid);
     }
-    
 }
 void writehistory(char *line)
 {
     FILE *fp;
-    char* path = generatehistorypath();
+    char *path = generatehistorypath();
     fp = fopen(path, "a");
 
     fprintf(fp, "%s", line);
@@ -180,58 +179,121 @@ void writehistory(char *line)
 int main(int argc, char *argv[])
 {
     signal(SIGQUIT, handler);
-    char bufor[1024];
+    char bufor[256];
     char *task;
-    int countoftasks,redirect =0,background=0;
+    int countoftasks, redirect = 0, background = 0;
     char *pipes[100];
-
-    printpath();
-    while ((task = fgets(bufor, sizeof(bufor), stdin)) != 0)
+    fprintf("%s \n",argv[1],stdout);
+    if(argc == 2)
     {
-        writehistory(task);
-        splittoTask(task, &countoftasks, &pipes, &redirect, &background);
-        int i = 0, cdflag = 0;
-        char **cmda[countoftasks + 1];
-        for (i = 0; i < countoftasks; i++)
+        fprintf("wbilo mnie",stdout);
+        sleep(3);
+        FILE* fp;
+        if((fp = fopen(argv[1],"r"))==NULL)
         {
+            perror("blad odczytu pliku");
+            exit(EXIT_FAILURE);
+        }
+        
+        while((task = fgets(bufor,sizeof(bufor),fp))!= 0)
+        {
+            writehistory(task);
+            splittoTask(task, &countoftasks, &pipes, &redirect, &background);
+            int i = 0, cdflag = 0;
+            char **cmda[countoftasks + 1];
+            for (i = 0; i < countoftasks; i++)
+            {
 
-            char *args[64]; // = (char **)malloc(sizeof(char*)*64);
-            int cmdcounts = parse(pipes[i], args);
-            if (strcmp(args[0], "cd") == 0 && args[1] != NULL)
-            {
-                if (strcmp(args[1], "~") == 0)
+                char *args[64]; // = (char **)malloc(sizeof(char*)*64);
+                int cmdcounts = parse(pipes[i], args);
+                if (strcmp(args[0], "cd") == 0 && args[1] != NULL)
                 {
-                    char *user = getenv("USER");
-                    char arg[15] = "/home/";
-                    strcat(arg, user);
-                    strcpy(args[1], arg);
+                    if (strcmp(args[1], "~") == 0)
+                    {
+                        char *user = getenv("USER");
+                        char arg[15] = "/home/";
+                        strcat(arg, user);
+                        strcpy(args[1], arg);
+                    }
+                    if (chdir(args[1]) == -1)
+                    {
+                        perror("cd blad");
+                    }
+                    cdflag = 1;
                 }
-                if (chdir(args[1]) == -1)
+                else
                 {
-                    perror("cd blad");
+                    if (cdflag == 1)
+                    {
+                        fprintf(stderr, "%s \n", "niepoprawne polecenie");
+                    }
+                    cmda[i] = (char **)malloc(sizeof(char *) * 64);
+                    memcpy(cmda[i], args, sizeof(args));
                 }
-                cdflag = 1;
             }
-            else
+            if (cdflag == 0 && background == 0)
             {
-                if (cdflag == 1)
-                {
-                    fprintf(stderr, "%s \n", "niepoprawne polecenie");
-                }
-                cmda[i] = (char **)malloc(sizeof(char *) * 64);
-                memcpy(cmda[i], args, sizeof(args));
+                cmda[i] = NULL;
+                pipeline(cmda, redirect, countoftasks);
             }
-        }
-        if (cdflag == 0 && background == 0)
-        {
-            cmda[i] = NULL;
-            pipeline(cmda, redirect, countoftasks);
-        }
-        else if(cdflag ==0 && background ==1 )
-        {
-            cmda[i] = NULL;
-            pipelineBackground(cmda, redirect, countoftasks);
-        }
+            else if (cdflag == 0 && background == 1)
+            {
+                cmda[i] = NULL;
+                pipelineBackground(cmda, redirect, countoftasks);
+            }
+        } 
+        fclose(fp);
+    }
+    else if (argc == 1)
+    {
         printpath();
+        while ((task = fgets(bufor, sizeof(bufor), stdin)) != 0)
+        {
+            writehistory(task);
+            splittoTask(task, &countoftasks, &pipes, &redirect, &background);
+            int i = 0, cdflag = 0;
+            char **cmda[countoftasks + 1];
+            for (i = 0; i < countoftasks; i++)
+            {
+
+                char *args[64]; // = (char **)malloc(sizeof(char*)*64);
+                int cmdcounts = parse(pipes[i], args);
+                if (strcmp(args[0], "cd") == 0 && args[1] != NULL)
+                {
+                    if (strcmp(args[1], "~") == 0)
+                    {
+                        char *user = getenv("USER");
+                        char arg[15] = "/home/";
+                        strcat(arg, user);
+                        strcpy(args[1], arg);
+                    }
+                    if (chdir(args[1]) == -1)
+                    {
+                        perror("cd blad");
+                    }
+                    cdflag = 1;
+                }
+                else
+                {
+                    if (cdflag == 1)
+                    {
+                        fprintf(stderr, "%s \n", "niepoprawne polecenie");
+                    }
+                    cmda[i] = (char **)malloc(sizeof(char *) * 64);
+                    memcpy(cmda[i], args, sizeof(args));
+                }
+            }
+            if (cdflag == 0 && background == 0)
+            {
+                cmda[i] = NULL;
+                pipeline(cmda, redirect, countoftasks);
+            }
+            else if (cdflag == 0 && background == 1)
+            {
+                cmda[i] = NULL;
+                pipelineBackground(cmda, redirect, countoftasks);
+            }
+            printpath();
+        }
     }
 }
