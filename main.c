@@ -125,6 +125,7 @@ void handler(int sig)
     char *task[] = {"tail", "-20", path, NULL};
     char **cmd[] = {task, NULL};
     pipeline(cmd, 0, 0);
+    printpath();
 }
 int parse(char *line, char **argv)
 {
@@ -183,24 +184,30 @@ int main(int argc, char *argv[])
     char *task;
     int countoftasks, redirect = 0, background = 0;
     char *pipes[100];
-    fprintf("%s \n",argv[1],stdout);
-    if(argc == 2)
+    //argv[1] = "./test.sh";
+    //argc++;
+    if (argc == 2)
     {
-        fprintf("wbilo mnie",stdout);
-        sleep(3);
-        FILE* fp;
-        if((fp = fopen(argv[1],"r"))==NULL)
+        FILE *fp;
+        task = calloc(256,sizeof(char));
+        if ((fp = fopen(argv[1], "r")) == NULL)
         {
             perror("blad odczytu pliku");
             exit(EXIT_FAILURE);
         }
-        
-        while((task = fgets(bufor,sizeof(bufor),fp))!= 0)
+        fgets(task,256,fp);
+        task = calloc(256,sizeof(char));
+        while (fgets(task,256,fp))
         {
+            if(task == NULL )
+                exit(EXIT_SUCCESS);
+            if (strcmp(task, "\n") == 0)
+                continue;
             writehistory(task);
             splittoTask(task, &countoftasks, &pipes, &redirect, &background);
             int i = 0, cdflag = 0;
             char **cmda[countoftasks + 1];
+
             for (i = 0; i < countoftasks; i++)
             {
 
@@ -241,7 +248,11 @@ int main(int argc, char *argv[])
                 cmda[i] = NULL;
                 pipelineBackground(cmda, redirect, countoftasks);
             }
-        } 
+            task = calloc(256,sizeof(char));
+            //fflush(fp);
+            //memset(&bufor[0],0,sizeof(bufor));
+            //memset(&task[0], 0, sizeof(task));
+        }
         fclose(fp);
     }
     else if (argc == 1)
@@ -249,6 +260,7 @@ int main(int argc, char *argv[])
         printpath();
         while ((task = fgets(bufor, sizeof(bufor), stdin)) != 0)
         {
+            printf("%s \n", task);
             writehistory(task);
             splittoTask(task, &countoftasks, &pipes, &redirect, &background);
             int i = 0, cdflag = 0;
