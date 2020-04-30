@@ -55,48 +55,83 @@ void pipeline(char ***cmd, int redirect, int countoftasks)
 {
     int fd[2];
     pid_t pid;
-    int fdd = 0; /* Backup */
+    int fdd = 0;
     sigmask(0);
     int file;
     while (*cmd != NULL)
     {
-        pipe(fd);
+        if (pipe(fd) == -1)
+        {
+            fprintf(stderr, "%s \n", strerror(errno));
+            return;
+        }
         if ((pid = fork()) == -1)
         {
-            perror("fork");
-            exit(1);
+            fprintf(stderr, "%s \n", strerror(errno));
+            return;
         }
         else if (pid == 0)
         {
-            dup2(fdd, 0);
+            if (dup2(fdd, 0) == -1)
+            {
+                fprintf(stderr, "%s \n", strerror(errno));
+                _exit(EXIT_FAILURE);
+            }
 
             if (*(cmd + 1) != NULL)
             {
-                dup2(fd[1], STDOUT_FILENO);
+                if (dup2(fd[1], STDOUT_FILENO) == -1)
+                {
+                    fprintf(stderr, "%s \n", strerror(errno));
+                    _exit(EXIT_FAILURE);
+                }
             }
             if (redirect == 1 && *(cmd + 2) == NULL)
             {
                 if ((file = open(*(cmd + 1)[0], O_CREAT | O_WRONLY | O_TRUNC, 0644)) < 0)
                 {
-                    perror("open error");
-                    //return -1;
+                    fprintf(stderr, "%s \n", strerror(errno));
+                    _exit(EXIT_FAILURE);
+                }
+                if (dup2(file, 1) == -1)
+                {
+                    fprintf(stderr, "%s \n", strerror(errno));
+                    _exit(EXIT_FAILURE);
                 }
 
-                dup2(file, 1);
-                close(file);
+                if (close(file) == -1)
+                {
+                    fprintf(stderr, "%s \n", strerror(errno));
+                    _exit(EXIT_FAILURE);
+                }
             }
             else
             {
-                close(fd[0]);
+                if (close(fd[0]) == -1)
+                {
+                    fprintf(stderr, "%s \n", strerror(errno));
+                    _exit(EXIT_FAILURE);
+                }
             }
 
-            execvp((*cmd)[0], *cmd);
-            exit(1);
+            if (execvp((*cmd)[0], *cmd) == -1)
+            {
+                fprintf(stderr, "%s \n", strerror(errno));
+            }
+            _exit(EXIT_FAILURE);
         }
         else
         {
-            wait(NULL); /* Collect childs */
-            close(fd[1]);
+            if (wait(NULL) == -1)
+            {
+                fprintf(stderr, "%s \n", strerror(errno));
+                _exit(EXIT_FAILURE);
+            }
+            if (close(fd[1]) == -1)
+            {
+                fprintf(stderr, "%s \n", strerror(errno));
+                _exit(EXIT_FAILURE);
+            }
             fdd = fd[0];
             cmd++;
         }
@@ -105,13 +140,21 @@ void pipeline(char ***cmd, int redirect, int countoftasks)
 void printpath()
 {
     char path[128];
-    getcwd(path, sizeof(path));
+    if (getcwd(path, sizeof(path)) == NULL)
+    {
+        fprintf(stderr, "blad dostepu do pliku");
+    }
     printf("%s: ", path);
 }
 
 char *generatehistorypath()
 {
     char *user = getenv("USER");
+    if (user == NULL)
+    {
+        fprintf(stderr, "blad pobrania nazwy uzytkownika");
+        return NULL;
+    }
     char *arg = (char *)malloc(sizeof(char) * 25);
     strcat(arg, "/home/");
     strcat(arg, user);
@@ -121,6 +164,10 @@ char *generatehistorypath()
 void handler(int sig)
 {
     char *path = generatehistorypath();
+    if (path == NULL)
+    {
+        return;
+    }
     printf("\n");
     char *task[] = {"tail", "-20", path, NULL};
     char **cmd[] = {task, NULL};
@@ -132,20 +179,17 @@ int parse(char *line, char **argv)
     int count = 0;
     while (*line != '\0')
     {
-        // if(strcmp(line,"\"\n")==0)
-        //     break;
-        /* if not the end of line ....... */
-        while (*line == ' ' || *line == '\t' || *line == '\"' || *line == '\n') //92 - \\/
-            *line++ = '\0';                                                     /* replace white spaces with 0    */
+        while (*line == ' ' || *line == '\t' || *line == '\"' || *line == '\n')
+            *line++ = '\0';
         if (strcmp(line, "") == 0)
             break;
         *argv++ = line;
-        count++; /* save the argument position     */
+        count++;
         while (*line != '\0' && *line != ' ' &&
                *line != '\t' && *line != '\n' && *line != '\"')
-            line++; /* skip the argument until ...    */
+            line++;
     }
-    *argv = '\0'; /* mark the end of argument list  */
+    *argv = '\0';
 
     return count;
 }
@@ -155,8 +199,8 @@ void pipelineBackground(char ***cmd, int redirect, int countoftasks)
 
     if ((pid = fork()) == -1)
     {
-        perror("fork error");
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "%s \n", strerror(errno));
+        return;
     }
     else if (pid == 0)
     {
@@ -170,36 +214,51 @@ void pipelineBackground(char ***cmd, int redirect, int countoftasks)
 void writehistory(char *line)
 {
     FILE *fp;
-    char *path = generatehistorypath();
+    char *path = malloc(25 * sizeof(char));
+    strcpy(path, generatehistorypath());
     fp = fopen(path, "a");
+
+    if (fp == NULL)
+    {
+        fprintf(stderr, "%s \n", strerror(errno));
+        return;
+    }
 
     fprintf(fp, "%s", line);
 
-    fclose(fp);
+    if (fclose(fp) == EOF)
+    {
+        fprintf(stderr, "%s \n", strerror(errno));
+    }
 }
 int main(int argc, char *argv[])
 {
-    signal(SIGQUIT, handler);
+    if (signal(SIGQUIT, handler) == SIG_ERR)
+    {
+        fprintf(stderr, "%s \n", strerror(errno));
+    }
     char bufor[256];
     char *task;
     int countoftasks, redirect = 0, background = 0;
     char *pipes[100];
-    //argv[1] = "./test.sh";
-    //argc++;
     if (argc == 2)
     {
         FILE *fp;
-        task = calloc(256,sizeof(char));
+        task = calloc(256, sizeof(char));
         if ((fp = fopen(argv[1], "r")) == NULL)
         {
             perror("blad odczytu pliku");
             exit(EXIT_FAILURE);
         }
-        fgets(task,256,fp);
-        task = calloc(256,sizeof(char));
-        while (fgets(task,256,fp))
+        fgets(task, 256, fp);
+        if (task == NULL)
         {
-            if(task == NULL )
+            fprintf(stderr, "%s \n", "blad odczytu");
+        }
+        task = calloc(256, sizeof(char));
+        while (fgets(task, 256, fp))
+        {
+            if (task == NULL)
                 exit(EXIT_SUCCESS);
             if (strcmp(task, "\n") == 0)
                 continue;
@@ -211,20 +270,26 @@ int main(int argc, char *argv[])
             for (i = 0; i < countoftasks; i++)
             {
 
-                char *args[64]; // = (char **)malloc(sizeof(char*)*64);
+                char *args[64]; 
                 int cmdcounts = parse(pipes[i], args);
                 if (strcmp(args[0], "cd") == 0 && args[1] != NULL)
                 {
                     if (strcmp(args[1], "~") == 0)
                     {
                         char *user = getenv("USER");
-                        char arg[15] = "/home/";
-                        strcat(arg, user);
-                        strcpy(args[1], arg);
+                        if (user == NULL)
+                        {
+                            fprintf(stderr, "nie udalo sie pobrac nazwy usera");
+                            exit(EXIT_FAILURE);
+                        }
+                        char home[15] = "/home/";
+                        strcat(home, user);
+
+                        strcpy(args[1], home);
                     }
                     if (chdir(args[1]) == -1)
                     {
-                        perror("cd blad");
+                        fprintf(stderr, "%s \n", strerror(errno));
                     }
                     cdflag = 1;
                 }
@@ -248,40 +313,52 @@ int main(int argc, char *argv[])
                 cmda[i] = NULL;
                 pipelineBackground(cmda, redirect, countoftasks);
             }
-            task = calloc(256,sizeof(char));
-            //fflush(fp);
-            //memset(&bufor[0],0,sizeof(bufor));
-            //memset(&task[0], 0, sizeof(task));
+            task = calloc(256, sizeof(char));
         }
-        fclose(fp);
+        if (fclose(fp) == EOF)
+        {
+            fprintf(stderr, "%s \n", strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+        free(task);
     }
     else if (argc == 1)
     {
         printpath();
+
         while ((task = fgets(bufor, sizeof(bufor), stdin)) != 0)
         {
-            printf("%s \n", task);
             writehistory(task);
+            if (strcmp(task, "exit\n") == 0)
+            {
+                break;
+            }
             splittoTask(task, &countoftasks, &pipes, &redirect, &background);
             int i = 0, cdflag = 0;
             char **cmda[countoftasks + 1];
             for (i = 0; i < countoftasks; i++)
             {
 
-                char *args[64]; // = (char **)malloc(sizeof(char*)*64);
+                char *args[64];
                 int cmdcounts = parse(pipes[i], args);
                 if (strcmp(args[0], "cd") == 0 && args[1] != NULL)
                 {
                     if (strcmp(args[1], "~") == 0)
                     {
                         char *user = getenv("USER");
-                        char arg[15] = "/home/";
-                        strcat(arg, user);
-                        strcpy(args[1], arg);
+                        if (user == NULL)
+                        {
+                            fprintf(stderr, "nie udalo sie pobrac nazwy usera");
+                            exit(EXIT_FAILURE);
+                        }
+                        char home[15] = "/home/";
+                        strcat(home, user);
+
+                        strcpy(args[1], home);
                     }
                     if (chdir(args[1]) == -1)
                     {
-                        perror("cd blad");
+                        fprintf(stderr, "%s \n", strerror(errno));
                     }
                     cdflag = 1;
                 }
@@ -299,13 +376,17 @@ int main(int argc, char *argv[])
             {
                 cmda[i] = NULL;
                 pipeline(cmda, redirect, countoftasks);
+                
             }
             else if (cdflag == 0 && background == 1)
             {
                 cmda[i] = NULL;
                 pipelineBackground(cmda, redirect, countoftasks);
+                
             }
             printpath();
+            
         }
     }
+    exit(EXIT_SUCCESS);
 }
