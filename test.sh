@@ -1,4 +1,4 @@
-#!/home/julia/projekt/shell/my_shell
+#!/home/szymon/shell/shell/my_shell
 
 ls -la >> a.txt 
 
