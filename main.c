@@ -4,11 +4,8 @@
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>
-#include <sys/stat.h>
 #include <fcntl.h>
-#include <sys/types.h>
 #include <sys/wait.h>
-#include <sys/mman.h>
 #define TASKLEN 256
 
 void splittoTask(char *tasks, int *countoftasks, char *pipes[100], int *redirectcount, int *backgroundcount)
@@ -52,7 +49,7 @@ void splittoTask(char *tasks, int *countoftasks, char *pipes[100], int *redirect
         }
     }
 }
-void pipeline(char ***cmd, int redirect, int countoftasks)
+void pipeline(char ***cmd, int redirect)
 {
     int fd[2];
     pid_t pid;
@@ -114,8 +111,10 @@ void pipeline(char ***cmd, int redirect, int countoftasks)
                     _exit(EXIT_FAILURE);
                 }
             }
-
-            execvp((*cmd)[0], *cmd);
+            if(execvp((*cmd)[0], *cmd)== -1 && redirect!= 1)
+            {
+                fprintf(stderr,"%s \n",strerror(errno));
+            }
             _exit(EXIT_FAILURE);
         }
         else
@@ -135,7 +134,7 @@ void pipeline(char ***cmd, int redirect, int countoftasks)
         }
     }
 }
-void printpath()
+void printPath()
 {
     char path[128];
     if (getcwd(path, sizeof(path)) == NULL)
@@ -145,7 +144,7 @@ void printpath()
     printf("%s: ", path);
 }
 
-char *generatehistorypath()
+char *generateHistoryPath()
 {
     char *user = getenv("USER");
     if (user == NULL)
@@ -161,7 +160,7 @@ char *generatehistorypath()
 }
 void handler(int sig)
 {
-    char *path = generatehistorypath();
+    char *path = generateHistoryPath();
     if (path == NULL)
     {
         return;
@@ -169,12 +168,11 @@ void handler(int sig)
     printf("\n");
     char *task[] = {"tail", "-20", path, NULL};
     char **cmd[] = {task, NULL};
-    pipeline(cmd, 0, 0);
-    printpath();
+    pipeline(cmd, 0);
+    printPath();
 }
-int parse(char *line, char **argv)
+void parse(char *line, char **argv)
 {
-    int count = 0;
     while (*line != '\0')
     {
         while (*line == ' ' || *line == '\t' || *line == '\"' || *line == '\n')
@@ -182,16 +180,13 @@ int parse(char *line, char **argv)
         if (strcmp(line, "") == 0)
             break;
         *argv++ = line;
-        count++;
         while (*line != '\0' && *line != ' ' &&
                *line != '\t' && *line != '\n' && *line != '\"')
             line++;
     }
     *argv = '\0';
-
-    return count;
 }
-void pipelineBackground(char ***cmd, int redirect, int countoftasks)
+void pipelineBackground(char ***cmd, int redirect)
 {
     pid_t pid;
 
@@ -202,18 +197,18 @@ void pipelineBackground(char ***cmd, int redirect, int countoftasks)
     }
     else if (pid == 0)
     {
-        pipeline(cmd, redirect, countoftasks);
+        pipeline(cmd, redirect);
     }
     else
     {
         printf("%s %d \n", "uruchomiono w procesie", pid);
     }
 }
-void writehistory(char *line)
+void writeHistory(char *line)
 {
     FILE *fp;
     char *path = malloc(25 * sizeof(char));
-    strcpy(path, generatehistorypath());
+    strcpy(path, generateHistoryPath());
     fp = fopen(path, "a");
 
     if (fp == NULL)
@@ -239,12 +234,14 @@ int main(int argc, char *argv[])
     int countoftasks, redirect = 0, background = 0;
     char *pipes[100];
     FILE *fp;
+    //argc ++;
     if (argc == 2)
     {
         task = calloc(TASKLEN, sizeof(char));
-        if ((fp = fopen(argv[1], "r")) == NULL)
+        fp = fopen("test.sh", "r");
+        if (fp == NULL)
         {
-            perror("blad odczytu pliku");
+            fprintf(stderr, "%s \n", strerror(errno));
             exit(EXIT_FAILURE);
         }
         fgets(task, TASKLEN, fp);
@@ -273,14 +270,14 @@ int main(int argc, char *argv[])
         }
         else if (argc == 1)
         {
-            printpath();
+            printPath();
             fgets(task, TASKLEN, stdin);
             if (strcmp(task, "exit\n") == 0)
             {
                 break;
             }
         }
-        writehistory(task);
+        writeHistory(task);
         splittoTask(task, &countoftasks, &pipes, &redirect, &background);
         int i = 0, cdflag = 0;
         char **cmda[countoftasks + 1];
@@ -289,7 +286,7 @@ int main(int argc, char *argv[])
         {
 
             char *args[64];
-            int cmdcounts = parse(pipes[i], args);
+            parse(pipes[i], args);
             if (strcmp(args[0], "cd") == 0 && args[1] != NULL)
             {
                 if (strcmp(args[1], "~") == 0)
@@ -324,12 +321,12 @@ int main(int argc, char *argv[])
         if (cdflag == 0 && background == 0)
         {
             cmda[i] = NULL;
-            pipeline(cmda, redirect, countoftasks);
+            pipeline(cmda, redirect);
         }
         else if (cdflag == 0 && background == 1)
         {
             cmda[i] = NULL;
-            pipelineBackground(cmda, redirect, countoftasks);
+            pipelineBackground(cmda, redirect);
         }
     }
     free(task);
