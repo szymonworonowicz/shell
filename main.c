@@ -111,10 +111,14 @@ void pipeline(char ***cmd, int redirect)
                     _exit(EXIT_FAILURE);
                 }
             }
-            if (execvp((*cmd)[0], *cmd) == -1 && redirect != 1)
+            if (!(*(cmd + 1) == NULL && redirect == 1))//nand
             {
-                fprintf(stderr, "%s \n", strerror(errno));
+                if (execvp((*cmd)[0], *cmd) == -1)
+                {
+                    fprintf(stderr, "%s \n", strerror(errno));
+                }
             }
+
             _exit(EXIT_FAILURE);
         }
         else
