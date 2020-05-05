@@ -8,6 +8,9 @@
 #include <sys/wait.h>
 #define TASKLEN 256
 
+char *history[20];
+int historycounter;
+
 void splittoTask(char *tasks, int *countoftasks, char **pipes, int *redirectcount, int *backgroundcount)
 {
     char *pipesep = "|";
@@ -111,7 +114,7 @@ void pipeline(char ***cmd, int redirect)
                     _exit(EXIT_FAILURE);
                 }
             }
-            if (!(*(cmd + 1) == NULL && redirect == 1))//nand
+            if (!(*(cmd + 1) == NULL && redirect == 1))
             {
                 if (execvp((*cmd)[0], *cmd) == -1)
                 {
@@ -156,24 +159,22 @@ void generateHistoryPath(char **arg)
         fprintf(stderr, "blad pobrania nazwy uzytkownika");
         return;
     }
-    //char *arg = (char *)malloc(sizeof(char) * 25);
     strcat(*arg, "/home/");
     strcat(*arg, user);
     strcat(*arg, "/history.txt");
 }
 void handler(int sig)
 {
-    char *path = calloc(25, sizeof(char));
-    generateHistoryPath(&path);
-    if (path == NULL)
-    {
-        return;
-    }
+    int i =0;
     printf("\n");
-    char *task[] = {"tail", "-20", path, NULL};
-    char **cmd[] = {task, NULL};
-    pipeline(cmd, 0);
-    free(path);
+    for(i=0;i<20&& history[i]!=NULL;i++)
+    {
+        printf("%s",history[i]);
+    }
+    for(i=0;i<historycounter;i++)
+    {
+        printf("%s",history[i]);
+    }
 }
 void parse(char *line, char **argv)
 {
@@ -208,20 +209,23 @@ void pipelineBackground(char ***cmd, int redirect)
         printf("%s %d \n", "uruchomiono w procesie", pid);
     }
 }
-void writeHistory(char *line)
+void writeHistory()
 {
     FILE *fp;
     char *path = calloc(25, sizeof(char));
     generateHistoryPath(&path);
-    fp = fopen(path, "a");
+    fp = fopen(path, "w");
 
     if (fp == NULL)
     {
         fprintf(stderr, "%s \n", strerror(errno));
         return;
     }
-
-    fprintf(fp, "%s", line);
+    int i;
+    for(i=0;i<20 && history[i]!=NULL;i++)
+    {
+        fprintf(fp,"%s",history[i]);
+    }
 
     if (fclose(fp) == EOF)
     {
@@ -229,12 +233,43 @@ void writeHistory(char *line)
     }
     free(path);
 }
+int getHistory()
+{
+    char *path = calloc(25, sizeof(char));
+    generateHistoryPath(&path);
+    char *line = calloc(TASKLEN, sizeof(char));
+    FILE *fp = fopen(path, "r");
+    if (fp == NULL)
+    {
+        fprintf(stderr, "%s \n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    fgets(line, TASKLEN, fp);
+    int i = 0;
+    while (strlen(line) != 0)
+    {
+        history[i] = calloc(TASKLEN,sizeof(char));
+        memcpy(history[i++],line,TASKLEN);
+        free(line);
+        line = calloc(TASKLEN, sizeof(char));
+        fgets(line, TASKLEN, fp);
+    }
+
+    if (fclose(fp) == EOF)
+    {
+        fprintf(stderr, "%s \n", strerror(errno));
+    }
+    free(path);
+    free(line);
+    return i;
+}
 int main(int argc, char *argv[])
 {
     if (signal(SIGQUIT, handler) == SIG_ERR)
     {
         fprintf(stderr, "%s \n", strerror(errno));
     }
+    historycounter = getHistory();
     char *task;
     int countoftasks, redirect = 0, background = 0;
     char *pipes[100];
@@ -242,7 +277,7 @@ int main(int argc, char *argv[])
     if (argc == 2)
     {
         task = calloc(TASKLEN, sizeof(char));
-        fp = fopen("test.sh", "r");
+        fp = fopen(argv[1], "r");
         if (fp == NULL)
         {
             fprintf(stderr, "%s \n", strerror(errno));
@@ -253,9 +288,11 @@ int main(int argc, char *argv[])
         {
             fprintf(stderr, "%s \n", "blad odczytu");
         }
+        free(task);
     }
     while (1)
     {
+
         task = calloc(TASKLEN, sizeof(char));
         if (argc == 2)
         {
@@ -281,7 +318,13 @@ int main(int argc, char *argv[])
                 break;
             }
         }
-        writeHistory(task);
+        if(history[historycounter % 20] != NULL)
+        {
+            free(history[historycounter % 20]);
+        }
+        history[historycounter % 20] = calloc(TASKLEN,sizeof(char));
+        memcpy(history[historycounter % 20], task, TASKLEN);
+        historycounter++;
         splittoTask(task, &countoftasks, pipes, &redirect, &background);
         int i = 0, cdflag = 0;
         char **cmda[countoftasks + 1];
@@ -343,5 +386,11 @@ int main(int argc, char *argv[])
         free(task);
     }
     free(task);
+    writeHistory();
+    int i;
+    for(i=0;i<20 && history[i]!= NULL;i++)
+    {
+        free(history[i]);
+    }
     exit(EXIT_SUCCESS);
 }
